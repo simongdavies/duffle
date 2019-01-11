@@ -22,8 +22,9 @@ import (
 
 // ACIDriver runs Docker invocation images in ACI
 type ACIDriver struct {
-	config       map[string]string
-	inCloudShell bool
+	config               map[string]string
+	inCloudShell         bool
+	delete_aci_resources bool
 }
 
 // Config returns the ACI driver configuration options
@@ -36,6 +37,7 @@ func (d *ACIDriver) Config() map[string]string {
 		"ACI_RESOURCE_GROUP":  "The name of the Resource Group to create the ACI instance in",
 		"ACI_LOCATION":        "The location to create the ACI Instance in",
 		"ACI_NAME":            "The name of the ACI instance to create",
+		"ACI_DO_NOT_DELETE":   "Do not delete RG and ACI instance created",
 	}
 }
 
@@ -57,6 +59,12 @@ func (d *ACIDriver) Handles(dt string) bool {
 // this uses az cli as the go sdk is incomplete for ACI
 // possibly only missing the ability to stream logs so should probably change this
 func (d *ACIDriver) exec(op *Operation) error {
+
+	d.delete_aci_resources = true
+
+	if len(d.config["ACI_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["ACI_DO_NOT_DELETE"]) == "true" {
+		d.delete_aci_resources = false
+	}
 
 	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
 
@@ -254,9 +262,11 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 			return fmt.Errorf("Failed to create resource group: %v", err)
 		}
 		defer func() {
-			err = runCommand("az", "group", "delete", "--name", aciRG, "--yes")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to delete resource group %s error: %v\n", aciRG, err)
+			if d.delete_aci_resources {
+				err = runCommand("az", "group", "delete", "--name", aciRG, "--yes")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to delete resource group %s error: %v\n", aciRG, err)
+				}
 			}
 		}()
 	} else {
@@ -316,11 +326,13 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 	go func(ctx context.Context, cancel context.CancelFunc) {
 
 		defer func() {
-			fmt.Println("Deleting Container Instance")
-			err = runCommand("az", "container", "delete", "--resource-group", aciRG, "--name", aciName, "--yes")
-			if err != nil {
-				errc <- err
-				return
+			if d.delete_aci_resources {
+				fmt.Println("Deleting Container Instance")
+				err = runCommand("az", "container", "delete", "--resource-group", aciRG, "--name", aciName, "--yes")
+				if err != nil {
+					errc <- err
+					return
+				}
 			}
 			close(errc)
 		}()
