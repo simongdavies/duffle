@@ -22,9 +22,9 @@ import (
 
 // ACIDriver runs Docker invocation images in ACI
 type ACIDriver struct {
-	config               map[string]string
-	inCloudShell         bool
-	delete_aci_resources bool
+	config             map[string]string
+	inCloudShell       bool
+	deleteACIResources bool
 }
 
 // Config returns the ACI driver configuration options
@@ -60,10 +60,10 @@ func (d *ACIDriver) Handles(dt string) bool {
 // possibly only missing the ability to stream logs so should probably change this
 func (d *ACIDriver) exec(op *Operation) error {
 
-	d.delete_aci_resources = true
+	d.deleteACIResources = true
 
 	if len(d.config["ACI_DO_NOT_DELETE"]) > 0 && strings.ToLower(d.config["ACI_DO_NOT_DELETE"]) == "true" {
-		d.delete_aci_resources = false
+		d.deleteACIResources = false
 	}
 
 	d.inCloudShell = len(os.Getenv("ACC_CLOUD")) > 0
@@ -262,7 +262,7 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 			return fmt.Errorf("Failed to create resource group: %v", err)
 		}
 		defer func() {
-			if d.delete_aci_resources {
+			if d.deleteACIResources {
 				err = runCommand("az", "group", "delete", "--name", aciRG, "--yes")
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to delete resource group %s error: %v\n", aciRG, err)
@@ -279,7 +279,6 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 				return fmt.Errorf("Cannot get return code from command az group show: %v", e)
 			}
 
-			// Not Logged in
 			if returnCode == 3 {
 				return fmt.Errorf("Resource Group does not exist: %v", e)
 			}
@@ -326,7 +325,7 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 	go func(ctx context.Context, cancel context.CancelFunc) {
 
 		defer func() {
-			if d.delete_aci_resources {
+			if d.deleteACIResources {
 				fmt.Println("Deleting Container Instance")
 				err = runCommand("az", "container", "delete", "--resource-group", aciRG, "--name", aciName, "--yes")
 				if err != nil {
@@ -337,18 +336,25 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 			close(errc)
 		}()
 
-		containerRunning := true
-		var err error
+		// Check if the container is running
+
+		containerRunning := false
+		output, err := getContainerStatus(aciRG, aciName)
+
+		// Get the output if the container failed immediately
+
+		if strings.Compare(output, "Failed") == 0 {
+			err = runCommand("az", "container", "logs", "--resource-group", aciRG, "--name", aciName, "--container-name", aciName)
+		} else {
+			containerRunning = true
+		}
+
 		for containerRunning {
 
-			cmd := exec.Command("az", "container", "show", "--resource-group", aciRG, "--name", aciName, "--query", "instanceView.state")
-			resp, err := cmd.Output()
+			output, err := getContainerStatus(aciRG, aciName)
 			if err != nil {
 				break
 			}
-
-			output := strings.Trim(strings.TrimSpace(string(resp)), "\"")
-
 			if strings.Compare(output, "Running") == 0 {
 				time.Sleep(5 * time.Second)
 			} else {
@@ -407,6 +413,18 @@ func (d *ACIDriver) createACIInstance(op *Operation) error {
 	}
 
 }
+
+func getContainerStatus(aciRG string, aciName string) (string, error) {
+
+	cmd := exec.Command("az", "container", "show", "--resource-group", aciRG, "--name", aciName, "--query", "instanceView.state")
+	resp, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Trim(strings.TrimSpace(string(resp)), "\""), nil
+}
+
 func locationIsAvailable(location string, locations []string) bool {
 
 	location = strings.ToLower(strings.Replace(location, " ", "", -1))
