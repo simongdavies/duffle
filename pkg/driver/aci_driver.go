@@ -434,18 +434,17 @@ func runCommandNoStderr(command string, args ...string) error {
 func runCommandWithContext(ctx context.Context, outputStderr bool, command string, args ...string) error {
 
 	cmd := exec.CommandContext(ctx, command, args...)
-	var errStdout, errStderr error
 
 	stdout, _ := cmd.StdoutPipe()
 	go func() {
-		_, errStdout = io.Copy(os.Stdout, stdout)
+		io.Copy(os.Stdout, stdout)
 	}()
 
 	if outputStderr {
 		stderr, _ := cmd.StderrPipe()
 
 		go func() {
-			_, errStderr = io.Copy(os.Stderr, stderr)
+			io.Copy(os.Stderr, stderr)
 		}()
 	}
 
@@ -457,15 +456,6 @@ func runCommandWithContext(ctx context.Context, outputStderr bool, command strin
 	err = cmd.Wait()
 	if err != nil {
 		return err
-	}
-
-	if errStdout != nil {
-		return fmt.Errorf("failed to get Stdout: %v", errStdout)
-
-	}
-
-	if outputStderr && errStderr != nil {
-		return fmt.Errorf("failed to get Stdout: %sv", errStderr)
 	}
 
 	return nil
