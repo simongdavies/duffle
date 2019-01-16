@@ -25,10 +25,16 @@ steps:
 
 - script: |
     make bootstrap build
+    make build-release
   workingDirectory: '$(modulePath)'
   displayName: 'Get dependencies, then build'
-  # GitHub Release
-# Create, edit, or discard a GitHub release.
+# Copy files from source folder to target folder using match patterns (The match patterns will only match file paths, not folder paths)
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: '$(modulePath)/bin'
+    contents: '**' 
+    targetFolder: '$(build.artifactStagingDirectory)'
+# GitHub Release
 - task: GithubRelease@0
   displayName: string  
   inputs:
