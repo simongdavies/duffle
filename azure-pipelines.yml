@@ -36,7 +36,7 @@ steps:
     targetFolder: '$(build.artifactStagingDirectory)'
 # GitHub Release
 - task: GithubRelease@0
-  displayName: string  
+  displayName: Create GitHub Release  
   inputs:
     gitHubConnection: 'Release Pipeline'
     repositoryName: $(Build.Repository.Name)
