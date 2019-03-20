@@ -6,10 +6,21 @@ action=$CNAB_ACTION
 name=$CNAB_INSTALLATION_NAME
 param=${CNAB_P_HELLO:-hello}
 
-echo "$param world"
+echo "$(date) $param world"
 case $action in
     install)
-    echo "Install action"
+    echo "$(date) Install action"
+    i=0
+    while [ $i -lt 6 ]
+    do 
+        echo "$(date) STDOUT:Running..."
+        (>&2 echo "$(date) STDERR:Running...")
+        sleep 10
+        i=$((i+1))
+    done
+    # az login --identity -u "${CNAB_P_ACI_USER_MSI_RESOURCE_ID}"
+    az login --identity
+    az group list
     ;;
     uninstall)
     echo "uninstall action"
@@ -27,4 +38,4 @@ case $action in
     echo "No action for $action"
     ;;
 esac
-echo "Action $action complete for $name"
+echo "$(date) Action $action complete for $name"

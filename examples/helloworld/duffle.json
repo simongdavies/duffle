@@ -24,10 +24,15 @@
             "name": "cnab",
             "builder": "docker",
             "configuration": {
-                "registry": "deislabs"
+                "registry": "simongdavies"
             }
         }
     },
-    "parameters": null,
+    "parameters":{
+        "ACI_USER_MSI_RESOURCE_ID":{
+            "type": "string",
+            "defaultValue": "/subscriptions/1e50fe9c-b28a-43d6-bbce-cbe72d4dc77b/resourceGroups/acitest1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/testusermsi"
+        }
+    },
     "credentials": null
 }
