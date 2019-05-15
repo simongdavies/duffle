@@ -2,7 +2,6 @@ package driver
 
 import (
 	"fmt"
-
 	"github.com/deislabs/cnab-go/driver"
 )
 
@@ -13,9 +12,12 @@ func Lookup(name string) (driver.Driver, error) {
 		return &DockerDriver{}, nil
 	case "debug":
 		return &driver.DebugDriver{}, nil
-	case "command":
-		return &CommandDriver{Name: name}, nil
 	default:
-		return nil, fmt.Errorf("unsupported driver: %s", name)
+		cmddriver := &CommandDriver{Name: name}
+		if cmddriver.CheckDriverExists() {
+			return cmddriver, nil
+		}
+
+		return nil, fmt.Errorf("unsupported driver or driver not found: %s", name)
 	}
 }
