@@ -57,7 +57,8 @@
 
 [[constraint]]
   name = "github.com/deislabs/cnab-go"
-  version = "v0.4.0-beta1"
+  branch = "command_outputs"
+  source = "github.com/simongdavies/cnab-go"
 
 [[override]]
   name = "github.com/google/go-containerregistry"
